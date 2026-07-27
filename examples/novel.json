@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "milestones": ["Chapter 1", "Chapter 8", "Chapter 14"],
+  "characters": [
+    {"id": "mara", "name": "Mara Vale", "events": [{"milestone": "Chapter 1", "status": "alive"}, {"milestone": "Chapter 14", "status": "dead", "certainty": "confirmed", "cause": "tower collapse", "witnesses": ["Ivo"]}]},
+    {"id": "ivo", "name": "Ivo", "events": [{"milestone": "Chapter 1", "status": "alive"}, {"milestone": "Chapter 8", "status": "missing", "certainty": "reported"}]}
+  ]
+}
