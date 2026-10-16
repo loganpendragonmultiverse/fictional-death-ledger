@@ -87,7 +87,61 @@ def report(data: dict[str, Any], through: str | None = None) -> dict[str, Any]:
     }
 
 
+def changes(data: dict[str, Any], earlier: str, later: str) -> dict[str, Any]:
+    milestones = data["milestones"]
+    if earlier not in milestones or later not in milestones:
+        raise ValueError("unknown comparison milestone")
+    if milestones.index(earlier) >= milestones.index(later):
+        raise ValueError("comparison requires ordered earlier and later milestones")
+    before = {row["id"]: row for row in report(data, earlier)["characters"]}
+    after = report(data, later)["characters"]
+
+    def state(row: dict[str, Any]) -> dict[str, Any]:
+        event = row["events"][-1]
+        return {
+            key: event.get(key, default)
+            for key, default in (
+                ("status", "unknown"),
+                ("certainty", "confirmed"),
+                ("cause", ""),
+                ("witnesses", []),
+            )
+        }
+
+    rows = []
+    for row in after:
+        previous = state(before[row["id"]]) if row["id"] in before else None
+        current = state(row)
+        if previous != current:
+            rows.append(
+                {"id": row["id"], "name": row["name"], "before": previous, "after": current}
+            )
+    return {"version": 2, "mode": "changes", "earlier": earlier, "later": later, "changes": rows}
+
+
+def render_changes(result: dict[str, Any]) -> str:
+    lines = [
+        "# Fictional Death Ledger Changes",
+        "",
+        f"From **{result['earlier']}** through **{result['later']}**",
+        "",
+    ]
+    for row in result["changes"]:
+        before = row["before"]
+        after = row["after"]
+        old = f"{before['status']} ({before['certainty']})" if before else "not introduced"
+        detail = f"{after['status']} ({after['certainty']})"
+        if after["cause"]:
+            detail += f"; cause: {after['cause']}"
+        if after["witnesses"]:
+            detail += "; witnesses: " + ", ".join(after["witnesses"])
+        lines.append(f"- **{row['name']}**: {old} → {detail}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_markdown(result: dict[str, Any]) -> str:
+    if result.get("mode") == "changes":
+        return render_changes(result)
     lines = ["# Fictional Death Ledger", "", f"Status through **{result['through']}**", ""]
     for status in sorted(STATUSES):
         items = [item for item in result["characters"] if item["status"] == status]

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fictional-death-ledger"
-version = "1.0.0"
+version = "1.1.0"
 description = "Track fictional character life status, deaths, witnesses, causes, and uncertainty by milestone."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,3 +31,6 @@ omit = ["src/*/__main__.py"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=fictional_death_ledger --cov-branch --cov-report=term-missing --cov-fail-under=90"
+
+[tool.setuptools.data-files]
+"share/doc/fictional-death-ledger" = ["README.md", "CHANGELOG.md", "DEVELOPMENT.md", "TESTING.md"]

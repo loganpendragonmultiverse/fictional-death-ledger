@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from .core import load_ledger, render_markdown, report
+from .core import changes, load_ledger, render_markdown, report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -13,12 +13,15 @@ def main(argv: list[str] | None = None) -> int:
         description="Report fictional life status through a milestone."
     )
     parser.add_argument("input", type=Path)
-    parser.add_argument("--through")
+    boundaries = parser.add_mutually_exclusive_group()
+    boundaries.add_argument("--through")
+    boundaries.add_argument("--between", nargs=2, metavar=("EARLIER", "LATER"))
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     try:
-        result = report(load_ledger(args.input), args.through)
+        data = load_ledger(args.input)
+        result = changes(data, *args.between) if args.between else report(data, args.through)
         rendered = (
             json.dumps(result, indent=2, ensure_ascii=False) + "\n"
             if args.format == "json"
