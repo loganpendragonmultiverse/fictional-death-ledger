@@ -1,5 +1,26 @@
 # Testing
 
-## 1.1.0 - 2026-10-16
+```bash
+python -m pip install -e ".[dev]"
+ruff format --check .
+ruff check .
+pytest
+python -m build
+```
 
-Run `python -m pip install -e ".[dev]"`, `ruff format --check .`, `ruff check .`, `pytest`, and `python -m build`. Keep regression fixtures synthetic and source inputs unchanged. `tests/test_feature_wave.py` covers the new behavior, malformed inputs and compatibility defaults. Verify README and CHANGELOG in wheel metadata/documentation and in the source archive before release. Protected cross-platform CI and CodeQL remain required; draft PR preparation does not authorize a merge or release.
+The suite enforces 90% branch-aware coverage. Regression cases exercise invalid
+JSON shapes, duplicate keys, optional detail types, literal Markdown rendering,
+exclusive output creation, ordinary reports and explicit boundary modes. CI runs
+Python 3.10 and 3.14 on Linux, Windows and macOS; local Linux verification alone
+does not establish the other platforms.
+
+Install each built wheel and source distribution in a separate fresh virtual
+environment, outside the source checkout. Run `death-ledger --help`, then run the
+installed example with Markdown and JSON output and the documented boundary mode.
+Confirm the documentation/example files are installed, source bytes remain intact
+and malformed inputs return exit 2 without a traceback. Repeat acceptance against
+the downloaded tag-workflow artifacts before publishing.
+
+Run `python tools/verify_artifact.py dist/<archive>` for each wheel and source
+archive. The script creates a fresh environment outside the checkout and checks
+installed imports, documentation, examples, report modes and failure behavior.

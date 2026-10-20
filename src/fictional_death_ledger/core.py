@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import html
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -9,17 +11,32 @@ STATUSES = {"alive", "dead", "missing", "unknown"}
 CERTAINTIES = {"confirmed", "reported", "suspected", "ambiguous"}
 
 
+def _object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _text(value: str) -> str:
+    """Keep supplied text literal in a single Markdown line."""
+    value = html.escape(" ".join(value.splitlines()), quote=False)
+    return re.sub(r"([\\`*_{}\[\]()#+.!|~>-])", r"\\\1", value)
+
+
 def load_ledger(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict) or data.get("version") != 1:
+    data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_object)
+    if not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1:
         raise ValueError("ledger must be a version 1 object")
     milestones = data.get("milestones")
     characters = data.get("characters")
     if (
         not isinstance(milestones, list)
         or not milestones
+        or not all(isinstance(item, str) and item.strip() for item in milestones)
         or len(set(milestones)) != len(milestones)
-        or not all(isinstance(item, str) and item for item in milestones)
     ):
         raise ValueError("milestones must be a non-empty unique string list")
     if not isinstance(characters, list):
@@ -32,6 +49,8 @@ def load_ledger(path: Path) -> dict[str, Any]:
             or not isinstance(character.get("name"), str)
         ):
             raise TypeError("each character requires string id and name")
+        if not character["id"].strip() or not character["name"].strip():
+            raise ValueError("character id and name must not be blank")
         if character["id"] in seen:
             raise ValueError(f"duplicate character id: {character['id']}")
         events = character.get("events", [])
@@ -45,10 +64,19 @@ def load_ledger(path: Path) -> dict[str, Any]:
             if position <= last:
                 raise ValueError(f"character {character['id']} events must follow milestone order")
             if (
-                event.get("status") not in STATUSES
+                not isinstance(event.get("status"), str)
+                or event["status"] not in STATUSES
+                or not isinstance(event.get("certainty", "confirmed"), str)
                 or event.get("certainty", "confirmed") not in CERTAINTIES
             ):
                 raise ValueError(f"character {character['id']} has an invalid status or certainty")
+            if "cause" in event and not isinstance(event["cause"], str):
+                raise TypeError("event cause must be a string")
+            witnesses = event.get("witnesses", [])
+            if not isinstance(witnesses, list) or not all(
+                isinstance(witness, str) and witness.strip() for witness in witnesses
+            ):
+                raise TypeError("event witnesses must be a list of nonblank strings")
             last = position
         seen.add(character["id"])
     return data
@@ -123,7 +151,7 @@ def render_changes(result: dict[str, Any]) -> str:
     lines = [
         "# Fictional Death Ledger Changes",
         "",
-        f"From **{result['earlier']}** through **{result['later']}**",
+        f"From **{_text(result['earlier'])}** through **{_text(result['later'])}**",
         "",
     ]
     for row in result["changes"]:
@@ -132,17 +160,17 @@ def render_changes(result: dict[str, Any]) -> str:
         old = f"{before['status']} ({before['certainty']})" if before else "not introduced"
         detail = f"{after['status']} ({after['certainty']})"
         if after["cause"]:
-            detail += f"; cause: {after['cause']}"
+            detail += f"; cause: {_text(after['cause'])}"
         if after["witnesses"]:
-            detail += "; witnesses: " + ", ".join(after["witnesses"])
-        lines.append(f"- **{row['name']}**: {old} → {detail}")
+            detail += "; witnesses: " + ", ".join(_text(value) for value in after["witnesses"])
+        lines.append(f"- **{_text(row['name'])}**: {old} → {detail}")
     return "\n".join(lines).rstrip() + "\n"
 
 
 def render_markdown(result: dict[str, Any]) -> str:
     if result.get("mode") == "changes":
         return render_changes(result)
-    lines = ["# Fictional Death Ledger", "", f"Status through **{result['through']}**", ""]
+    lines = ["# Fictional Death Ledger", "", f"Status through **{_text(result['through'])}**", ""]
     for status in sorted(STATUSES):
         items = [item for item in result["characters"] if item["status"] == status]
         if not items:
@@ -152,9 +180,13 @@ def render_markdown(result: dict[str, Any]) -> str:
             event = item["events"][-1]
             details = [item["certainty"]]
             if event.get("cause"):
-                details.append(f"cause: {event['cause']}")
+                details.append(f"cause: {_text(event['cause'])}")
             if event.get("witnesses"):
-                details.append("witnesses: " + ", ".join(event["witnesses"]))
-            lines.append(f"- **{item['name']}** — {event['milestone']}; " + "; ".join(details))
+                details.append(
+                    "witnesses: " + ", ".join(_text(value) for value in event["witnesses"])
+                )
+            lines.append(
+                f"- **{_text(item['name'])}** — {_text(event['milestone'])}; " + "; ".join(details)
+            )
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

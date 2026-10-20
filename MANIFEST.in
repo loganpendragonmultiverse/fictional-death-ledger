@@ -3,3 +3,6 @@ recursive-include examples *.json
 
 include DEVELOPMENT.md TESTING.md
 recursive-include tests *.py *.txt
+
+include DEVELOPMENT.md TESTING.md
+recursive-include tools *.py
