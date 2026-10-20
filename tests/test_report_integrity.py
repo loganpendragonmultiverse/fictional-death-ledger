@@ -93,3 +93,14 @@ def test_markdown_is_literal_and_json_is_unchanged(tmp_path):
         assert "<script>" not in markdown and "\n# Forged" not in markdown
         assert r"\[click\]" in markdown and r"\*\*fake\*\*" in markdown
     assert result["characters"][0]["name"] == data["characters"][0]["name"]
+
+
+def test_symlink_guard_precedes_file_creation(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    path = write(tmp_path, ledger())
+    output = tmp_path / "would-follow-link"
+    original = Path.is_symlink
+    monkeypatch.setattr(Path, "is_symlink", lambda self: self == output or original(self))
+    assert main([str(path), "--output", str(output)]) == 2
+    assert not output.exists()
